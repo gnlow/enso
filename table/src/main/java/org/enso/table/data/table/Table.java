@@ -29,7 +29,7 @@ public class Table {
             (columns == null || columns.length == 0) ? 0 : (int) columns[0].getSize()));
   }
 
-  private Table(Column[] columns, Index index) {
+  public Table(Column[] columns, Index index) {
     this.columns = columns;
     this.index = index;
   }

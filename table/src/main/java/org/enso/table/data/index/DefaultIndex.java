@@ -1,5 +1,7 @@
 package org.enso.table.data.index;
 
+import org.enso.table.data.table.Column;
+
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
@@ -49,5 +51,10 @@ public class DefaultIndex extends Index {
   @Override
   public Index countMask(int[] counts, int total) {
     return new DefaultIndex(total);
+  }
+
+  @Override
+  public Column count() {
+    return null;
   }
 }

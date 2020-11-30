@@ -1,7 +1,8 @@
 package org.enso.table.data.index;
 
+import org.enso.table.data.column.storage.LongStorage;
 import org.enso.table.data.column.storage.Storage;
-import org.enso.table.data.column.storage.StringStorage;
+import org.enso.table.data.table.Column;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -11,6 +12,7 @@ public class HashIndex extends Index {
   private final Map<Object, List<Integer>> locs;
   private final String name;
   private final int size;
+  private HashIndex uniqueIndex = null;
 
   private HashIndex(Object[] items, Map<Object, List<Integer>> locs, String name, int size) {
     this.items = items;
@@ -88,5 +90,29 @@ public class HashIndex extends Index {
       }
     }
     return new HashIndex(name, newItems, total);
+  }
+
+  private void initUniqueIndex() {
+    Object[] newItems = new Object[locs.size()];
+    Map<Object, List<Integer>> newLocs = new HashMap<>(locs.size());
+    int pos = 0;
+    for (Object o : items) {
+      if (!newLocs.containsKey(o)) {
+        newLocs.put(o, Collections.singletonList(pos));
+        newItems[pos++] = o;
+      }
+    }
+    uniqueIndex = new HashIndex(newItems, newLocs, name, newItems.length);
+  }
+
+  @Override
+  public Column count() {
+    initUniqueIndex();
+    long[] result = new long[uniqueIndex.size];
+    for (int i = 0; i < uniqueIndex.items.length; i++) {
+      result[i] = locs.get(uniqueIndex.items[i]).size();
+    }
+    Storage storage = new LongStorage(result, uniqueIndex.size, new BitSet());
+    return new Column("count", uniqueIndex, storage);
   }
 }
