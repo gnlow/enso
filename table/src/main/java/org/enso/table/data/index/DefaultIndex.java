@@ -54,7 +54,22 @@ public class DefaultIndex extends Index {
   }
 
   @Override
+  public Index orderMask(int[] mask) {
+    return this;
+  }
+
+  @Override
   public Column count() {
+    return null;
+  }
+
+  @Override
+  public Column toColumn() {
+    return null;
+  }
+
+  @Override
+  public Index concat(Index other) {
     return null;
   }
 }

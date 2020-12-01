@@ -8,41 +8,35 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class HashIndex extends Index {
-  private final Object[] items;
+  private final Storage storage;
   private final Map<Object, List<Integer>> locs;
   private final String name;
-  private final int size;
   private HashIndex uniqueIndex = null;
 
-  private HashIndex(Object[] items, Map<Object, List<Integer>> locs, String name, int size) {
-    this.items = items;
+  private HashIndex(Storage storage, Map<Object, List<Integer>> locs, String name) {
+    this.storage = storage;
     this.locs = locs;
     this.name = name;
-    this.size = size;
   }
 
-  private HashIndex(String name, Object[] items, int size) {
+  private HashIndex(String name, Storage storage) {
     Map<Object, List<Integer>> locations = new HashMap<>();
-    for (int i = 0; i < size; i++) {
-      List<Integer> its = locations.computeIfAbsent(items[i], x -> new ArrayList<>());
+    for (int i = 0; i < storage.size(); i++) {
+      List<Integer> its =
+          locations.computeIfAbsent(storage.getItemBoxed(i), x -> new ArrayList<>());
       its.add(i);
     }
     this.locs = locations;
-    this.items = items;
+    this.storage = storage;
     this.name = name;
-    this.size = size;
   }
 
   public static HashIndex fromStorage(String name, Storage storage) {
-    Object[] data = new Object[(int) storage.size()];
-    for (int i = 0; i < storage.size(); i++) {
-      data[i] = storage.getItemBoxed(i);
-    }
-    return new HashIndex(name, data, (int) storage.size());
+    return new HashIndex(name, storage);
   }
 
   public Object iloc(int i) {
-    return items[i];
+    return storage.getItemBoxed(i);
   }
 
   @Override
@@ -52,7 +46,7 @@ public class HashIndex extends Index {
 
   @Override
   public String ilocString(int loc) {
-    return iloc(loc).toString();
+    return String.valueOf(iloc(loc));
   }
 
   @Override
@@ -62,57 +56,50 @@ public class HashIndex extends Index {
 
   @Override
   public Index mask(BitSet mask, int cardinality) {
-    Map<Object, List<Integer>> newLocs = new HashMap<>();
-    for (Map.Entry<Object, List<Integer>> entry : locs.entrySet()) {
-      List<Integer> newIxes =
-          entry.getValue().stream().filter(mask::get).collect(Collectors.toList());
-      if (!newIxes.isEmpty()) {
-        newLocs.put(entry.getKey(), newIxes);
-      }
-    }
-    Object[] newItems = new Object[cardinality];
-    int j = 0;
-    for (int i = 0; i < size; i++) {
-      if (mask.get(i)) {
-        newItems[j++] = items[i];
-      }
-    }
-    return new HashIndex(newItems, newLocs, name, cardinality);
+    return HashIndex.fromStorage(name, storage.mask(mask, cardinality));
   }
 
   @Override
   public Index countMask(int[] counts, int total) {
-    Object[] newItems = new Object[total];
-    int pos = 0;
-    for (int i = 0; i < size; i++) {
-      for (int j = 0; j < counts[i]; j++) {
-        newItems[pos++] = items[i];
-      }
-    }
-    return new HashIndex(name, newItems, total);
+    return HashIndex.fromStorage(name, storage.countMask(counts, total));
+  }
+
+  @Override
+  public Index orderMask(int[] mask) {
+    return HashIndex.fromStorage(name, storage.orderMask(mask));
   }
 
   private void initUniqueIndex() {
-    Object[] newItems = new Object[locs.size()];
-    Map<Object, List<Integer>> newLocs = new HashMap<>(locs.size());
-    int pos = 0;
-    for (Object o : items) {
-      if (!newLocs.containsKey(o)) {
-        newLocs.put(o, Collections.singletonList(pos));
-        newItems[pos++] = o;
-      }
+    BitSet mask = new BitSet();
+    for (List<Integer> positions : locs.values()) {
+      mask.set(positions.get(0));
     }
-    uniqueIndex = new HashIndex(newItems, newLocs, name, newItems.length);
+    uniqueIndex = HashIndex.fromStorage(name, storage.mask(mask, locs.size()));
   }
 
   @Override
   public Column count() {
     initUniqueIndex();
-    long[] result = new long[uniqueIndex.size];
-    for (int i = 0; i < uniqueIndex.items.length; i++) {
-      result[i] = locs.get(uniqueIndex.items[i]).size();
+    long[] result = new long[uniqueIndex.storage.size()];
+    for (int i = 0; i < uniqueIndex.size(); i++) {
+      result[i] = locs.get(uniqueIndex.iloc(i)).size();
     }
-    Storage storage = new LongStorage(result, uniqueIndex.size, new BitSet());
+    Storage storage = new LongStorage(result, uniqueIndex.size(), new BitSet());
     return new Column("count", uniqueIndex, storage);
+  }
+
+  // TODO Other indexes
+  @Override
+  public Index concat(Index other) {
+    return HashIndex.fromStorage(name, this.storage.concat(((HashIndex) other).storage));
+  }
+
+  @Override
+  public Column toColumn() {
+    return new Column(name, this, storage);
+  }
+
+  private int size() {
+    return storage.size();
   }
 }

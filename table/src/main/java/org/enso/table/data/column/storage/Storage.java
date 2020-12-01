@@ -4,6 +4,7 @@ import org.enso.table.data.column.builder.object.Builder;
 import org.enso.table.data.column.builder.object.InferredBuilder;
 
 import java.util.BitSet;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.graalvm.polyglot.Value;
@@ -91,6 +92,20 @@ public abstract class Storage {
     return builder.seal();
   }
 
+  public Storage zip(Storage other, BiFunction<Object, Object, Object> function) {
+    Builder builder = new InferredBuilder(size());
+    for (int i = 0; i < size(); i++) {
+      Object i1 = getItemBoxed(i);
+      Object i2 = other.getItemBoxed(i);
+      if (i1 != null && i2 != null) {
+        builder.append(function.apply(i1, i2));
+      } else {
+        builder.append(null);
+      }
+    }
+    return builder.seal();
+  }
+
   /**
    * Return a new storage, containing only the items marked true in the mask.
    *
@@ -124,4 +139,17 @@ public abstract class Storage {
    * @return the storage masked according to the specified rules
    */
   public abstract Storage countMask(int[] counts, int total);
+
+  public Storage concat(Storage other) {
+    InferredBuilder bldr = new InferredBuilder(size() + other.size());
+    for (int i = 0; i < size(); i++) {
+      bldr.append(getItemBoxed(i));
+    }
+    for (int i = 0; i < other.size(); i++) {
+      bldr.append(other.getItemBoxed(i));
+    }
+    return bldr.seal();
+  }
+
+  public abstract Integer[] rank(boolean ascending);
 }

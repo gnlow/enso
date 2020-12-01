@@ -2,6 +2,7 @@ package org.enso.table.data.column.storage;
 
 import org.enso.table.data.index.Index;
 
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.function.Function;
 
@@ -133,5 +134,34 @@ public class DoubleStorage extends Storage {
       }
     }
     return new DoubleStorage(newData, total, newMissing);
+  }
+
+  @Override
+  public Integer[] rank(boolean ascending) {
+    int lt = ascending ? -1 : 1;
+    int gt = ascending ? 1 : -1;
+    int eq = 0;
+    Integer[] order = new Integer[size];
+    for (int i = 0; i < order.length; i++) {
+      order[i] = i;
+    }
+    Arrays.sort(
+        order,
+        (i1, i2) -> {
+          if (isMissing.get(i1)) {
+            if (isMissing.get(i2)) {
+              return eq;
+            } else {
+              return lt;
+            }
+          }
+          if (isMissing.get(i2)) {
+            return lt;
+          }
+          return Double.compare(
+                  Double.longBitsToDouble(data[i1]), Double.longBitsToDouble(data[i2]))
+              * gt;
+        });
+    return order;
   }
 }

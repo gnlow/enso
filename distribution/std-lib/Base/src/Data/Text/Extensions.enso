@@ -3,7 +3,10 @@ from Builtins import Text, Prim_Text_Helpers
 
 from Builtins export Text
 
+import Base.Data.Time.Locale
+
 polyglot java import com.ibm.icu.text.BreakIterator
+polyglot java import com.ibm.icu.lang.UCharacter
 polyglot java import org.enso.base.Text_Utils
 
 ## Computes the number of characters in the text.
@@ -220,3 +223,7 @@ Text.take_last count =
     iterator.last []
     boundary = iterator.next [-count]
     if boundary == -1 then this else Text_Utils.drop_first [this, boundary]
+
+Text.lower_case : Locale.Locale -> Text
+Text.lower_case locale=Locale.default =
+    UCharacter.toLowerCase [locale.java_locale, this]

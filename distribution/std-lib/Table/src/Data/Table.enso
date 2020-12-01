@@ -65,8 +65,12 @@ type Table
 
     ## Sets the column value at the given name. If a column with the given name
        already exists, it will be replaced. Otherwise a new column is added.
-    set name column =
-        Table (this.java_table.addOrReplaceColumn [column.rename name . java_column])
+    set name column = case column of
+        Column.Column _ ->
+            Table (this.java_table.addOrReplaceColumn [column.rename name . java_column])
+        Vector.Vector _ ->
+            c = Column.from_vector name column
+            Table (this.java_table.addOrReplaceColumn [c.java_column])
 
     ## Returns the vector of columns contained in this table.
     columns =
@@ -78,7 +82,12 @@ type Table
         Table (this.java_table.indexFromColumn [index])
 
     ## Selects a subset of columns from this table by name.
-    select columns = Table (this.java_table.selectColumns [columns.to_array])
+    select columns =
+        cols = columns.map n-> case n of
+            Text -> this.java_table.getColumnByName [n]
+            Vector.Vector _ -> this.java_table.getColumnByName [n.at 0] . rename [n.at 1]
+        tbl = Java_Table.new [cols.to_array, this.java_table.getIndex []].to_array
+        Table tbl
 
     ## Efficiently joins two tables based on either the index or a key column.
 
@@ -105,6 +114,16 @@ type Table
         Nothing -> Aggregate_Table this.java_table
         cname -> Aggregate_Table (this.set_index cname . java_table)
 
+    index : Column
+    index = Column.Column (this.java_table.getIndex [] . toColumn [])
+
+    sort by ascending=True =
+        Table (this.java_table.sortBy [by,ascending])
+
+    concat : Table -> Table
+    concat other = Table (this.java_table.concat [other.java_table])
+
+
 type Aggregate_Table
     type Aggregate_Table java_table
 
@@ -128,6 +147,12 @@ new columns =
     cols = columns.map c->
         Column.from_vector (c.at 0) (c.at 1) . java_column
     here.from_columns cols
+
+from_rows headers rows =
+    cols = headers.map_with_index i-> h->
+        cont = rows.map (_.at i)
+        [h, cont]
+    here.new cols
 
 ## PRIVATE
 pad txt len =

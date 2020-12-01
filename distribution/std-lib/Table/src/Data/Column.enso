@@ -57,6 +57,9 @@ type Column
     is_missing : Column
     is_missing = here.run_vectorized_op this "is_missing" (== Nothing) Nothing
 
+    is_present : Column
+    is_present = this.is_missing.not
+
     ## Applies `function` to each item in this column and returns the column
        of results.
     map function =
@@ -65,6 +68,22 @@ type Column
         new_st = storage.map [function]
         col = Java_Column.new ["Result", index, new_st].to_array
         Column col
+
+    zip other function =
+        this_s = this.java_column.getStorage []
+        ix = this.java_column.getIndex []
+        that_s = other.java_column.getStorage []
+        new_st = this_s.zip [that_s, function]
+        col = Java_Column.new ["result", ix, new_st].to_array
+        Column col
+
+    / that = case that of
+        Column _ -> this.zip that (/)
+        _ -> this.map (/ that)
+
+    > that = this.map (> that)
+
+    >= that = this.map (>= that)
 
     ## Returns a new column, containing the same elements as `this`, but with
        the given name.
@@ -108,6 +127,11 @@ type Column
         storage_json = Json.Array (here.storage_to_json storage json_factory)
         fields = Map.singleton "name" (Json.String name) . insert "data" storage_json
         Json.Object fields
+
+    sort ascending=True =
+        Column (this.java_column.sort [ascending])
+
+    sum = this.java_column.sum []
 
 ## Creates a new column given a name and a vector of elements.
 from_vector name items = Column (Java_Column.fromItems [name, items.to_array])

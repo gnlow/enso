@@ -133,4 +133,9 @@ public class BoolStorage extends Storage {
   public boolean isNegated() {
     return negated;
   }
+
+  @Override
+  public Integer[] rank(boolean ascending) {
+    return new Integer[0];
+  }
 }

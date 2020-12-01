@@ -116,4 +116,9 @@ public class ObjectStorage extends Storage {
   public Object[] getData() {
     return data;
   }
+
+  @Override
+  public Integer[] rank(boolean ascending) {
+    return new Integer[0];
+  }
 }

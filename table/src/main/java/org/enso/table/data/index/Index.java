@@ -1,5 +1,6 @@
 package org.enso.table.data.index;
 
+import org.enso.table.data.column.storage.Storage;
 import org.enso.table.data.table.Column;
 
 import java.util.BitSet;
@@ -57,6 +58,12 @@ public abstract class Index {
    * @return the index masked according to the specified rules
    */
   public abstract Index countMask(int[] counts, int total);
+
+  public abstract Index orderMask(int[] mask);
+
+  public abstract Index concat(Index other);
+
+  public abstract Column toColumn();
 
   public abstract Column count();
 }

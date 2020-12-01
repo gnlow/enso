@@ -1,6 +1,7 @@
 package org.enso.table.data.table;
 
 import org.enso.table.data.column.builder.object.InferredBuilder;
+import org.enso.table.data.column.storage.LongStorage;
 import org.enso.table.data.column.storage.Storage;
 import org.enso.table.data.index.Index;
 import org.enso.table.data.index.DefaultIndex;
@@ -90,5 +91,25 @@ public class Column {
   /** @return the index of this column */
   public Index getIndex() {
     return index;
+  }
+
+  public Column sort(boolean ascending) {
+    Integer[] maskBox = storage.rank(ascending);
+    int[] mask = new int[maskBox.length];
+    for (int i = 0; i < mask.length; i++) {
+      mask[i] = maskBox[i];
+    }
+    return new Column(name, index.orderMask(mask), storage.orderMask(mask));
+  }
+
+  public double sum() {
+    LongStorage storage = (LongStorage) this.getStorage();
+    double r = 0;
+    for (int i = 0; i < storage.size(); i++) {
+      if (!storage.isNa(i)) {
+        r += storage.getItem(i);
+      }
+    }
+    return r;
   }
 }

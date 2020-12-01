@@ -145,12 +145,17 @@ public class Table {
     if (col == null) throw new NoSuchColumnException(name);
     Storage storage = col.getStorage();
     Index ix = HashIndex.fromStorage(col.getName(), storage);
-    Column[] newColumns = new Column[columns.length - 1];
+    boolean restoreOldIndex = index instanceof HashIndex;
+    int resColCount = restoreOldIndex ? columns.length : columns.length - 1;
+    Column[] newColumns = new Column[resColCount];
     int j = 0;
     for (int i = 0; i < columns.length; i++) {
       if (!columns[i].getName().equals(name)) {
         newColumns[j++] = columns[i].withIndex(ix);
       }
+    }
+    if (restoreOldIndex) {
+      newColumns[columns.length - 1] = index.toColumn().withIndex(ix);
     }
     return new Table(newColumns, ix);
   }
@@ -244,7 +249,36 @@ public class Table {
     return new Table(newColumns, newIndex);
   }
 
+  // TODO Weird shapes
+  public Table concat(Table other) {
+    Index newIx = index.concat(other.index);
+    Column[] newColumns = new Column[columns.length];
+    for (int i = 0; i < columns.length; i++) {
+      Column thisCol = columns[i];
+      Column thatCol = other.columns[i];
+      newColumns[i] =
+          new Column(thisCol.getName(), newIx, thisCol.getStorage().concat(thatCol.getStorage()));
+    }
+    return new Table(newColumns, newIx);
+  }
+
   private String suffixIfNecessary(Set<String> names, String name, String suffix) {
     return names.contains(name) ? name + suffix : name;
+  }
+
+  public Table sortBy(String colName, boolean ascending) {
+    Column by = getColumnByName(colName);
+    Integer[] maskBox = by.getStorage().rank(ascending);
+    int[] mask = new int[maskBox.length];
+    for (int i = 0; i < mask.length; i++) {
+      mask[i] = maskBox[i];
+    }
+    Index newIndex = index.orderMask(mask);
+    Column[] newCols = new Column[columns.length];
+    for (int i = 0; i < columns.length; i++) {
+      newCols[i] =
+          new Column(columns[i].getName(), newIndex, columns[i].getStorage().orderMask(mask));
+    }
+    return new Table(newCols, newIndex);
   }
 }
