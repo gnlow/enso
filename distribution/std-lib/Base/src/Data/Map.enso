@@ -89,7 +89,7 @@ type Map
     ## Gets the value associated with `key` in this map, or returns `other` if
        it isn't present.
     get_or_else : Any -> Any -> Any
-    get_or_else key other =
+    get_or_else key ~other =
         result = this.get key
         if result.is_nothing then other else result
 
