@@ -6,6 +6,8 @@ import com.oracle.truffle.api.interop.TruffleObject;
 import com.oracle.truffle.api.library.ExportLibrary;
 import com.oracle.truffle.api.library.ExportMessage;
 
+import java.util.Arrays;
+
 /** A primitve boxed array type for use in the runtime. */
 @ExportLibrary(InteropLibrary.class)
 public class Array implements TruffleObject {
@@ -98,5 +100,10 @@ public class Array implements TruffleObject {
   @ExportMessage
   boolean isArrayElementInsertable(long index) {
     return false;
+  }
+
+  @Override
+  public String toString() {
+    return Arrays.toString(items);
   }
 }

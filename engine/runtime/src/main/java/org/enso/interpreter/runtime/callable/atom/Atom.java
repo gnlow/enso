@@ -15,7 +15,10 @@ import org.enso.interpreter.Language;
 import org.enso.interpreter.node.expression.builtin.text.util.ToJavaStringNode;
 import org.enso.interpreter.runtime.Context;
 import org.enso.interpreter.runtime.callable.UnresolvedSymbol;
+import org.enso.interpreter.runtime.callable.argument.ArgumentDefinition;
+import org.enso.interpreter.runtime.callable.function.CurriedMethod;
 import org.enso.interpreter.runtime.callable.function.Function;
+import org.enso.interpreter.runtime.callable.function.FunctionSchema;
 import org.enso.interpreter.runtime.data.Array;
 import org.enso.interpreter.runtime.data.text.Text;
 import org.enso.interpreter.runtime.type.TypesGen;
@@ -120,6 +123,23 @@ public class Atom implements TruffleObject {
   public boolean isMemberInvocable(String member) {
     Map<String, ?> members = constructor.getDefinitionScope().getMethods().get(constructor);
     return members != null && members.containsKey(member);
+  }
+
+  @ExportMessage
+  public boolean isMemberReadable(String member) {
+    return isMemberInvocable(member);
+  }
+
+  @ExportMessage
+  public Object readMember(String member) {
+    for (int i = 0; i < constructor.getArity(); i++) {
+      if (member.equals(constructor.getFields()[i].getName())) {
+        return fields[i];
+      }
+    }
+    Map<String, Function> members = constructor.getDefinitionScope().getMethods().get(constructor);
+    Function fun = members.get(member);
+    return new CurriedMethod(fun, this);
   }
 
   @ExportMessage
