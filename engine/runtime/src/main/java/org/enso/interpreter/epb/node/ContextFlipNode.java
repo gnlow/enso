@@ -1,13 +1,19 @@
 package org.enso.interpreter.epb.node;
 
 import com.oracle.truffle.api.TruffleContext;
+import com.oracle.truffle.api.dsl.GenerateUncached;
+import com.oracle.truffle.api.dsl.ReportPolymorphism;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.nodes.Node;
 import org.enso.interpreter.epb.runtime.PolyglotProxy;
 
+@GenerateUncached
+@ReportPolymorphism
 public abstract class ContextFlipNode extends Node {
   /**
-   * Wraps a value originating from {@code origin} into a value valid in {@code target}.
+   * Wraps a value originating from {@code origin} into a value valid in {@code target}. This method
+   * is allowed to use interop library on {@code value} and therefore must be called with {@code
+   * origin} entered.
    *
    * @param value
    * @param origin
