@@ -44,40 +44,43 @@ public abstract class SafeEvalNode extends RootNode {
       VirtualFrame frame,
       @CachedContext(EpbLanguage.class) TruffleLanguage.ContextReference<EpbContext> contextRef) {
     EpbContext context = contextRef.get();
-    TruffleContext outer = context.getEnv().getContext();
-//    System.out.println("Original context is: " + context);
+    //    System.out.println("Original context is: " + context);
     if (!context.isInner()) {
+      TruffleContext outer = context.getEnv().getContext();
       TruffleContext inner = context.getInnerContext();
       Object p = inner.enter();
       try {
-//        System.out.println("Entered inner context");
-        return doRun(frame, contextRef, outer);
+        //        System.out.println("Entered inner context");
+        return doRun(frame, contextRef, inner, outer);
       } finally {
         inner.leave(p);
       }
     } else {
-//      System.out.println("Already in inner context");
-      return doRun(frame, contextRef, outer);
+      TruffleContext inner = context.getEnv().getContext();
+      TruffleContext outer = inner.getParent();
+      return doRun(frame, contextRef, inner, outer);
     }
   }
 
   private Stateful doRun(
       VirtualFrame frame,
       TruffleLanguage.ContextReference<EpbContext> contextRef,
+      TruffleContext inner,
       TruffleContext outer) {
     Object state = Function.ArgumentsHelper.getState(frame.getArguments());
     if (callNode == null) {
-//      System.out.println("Uncached: Parsing Foreign Code: " + lang);
+      //      System.out.println("Uncached: Parsing Foreign Code: " + lang);
       CompilerDirectives.transferToInterpreterAndInvalidate();
       Source source = Source.newBuilder(lang, this.source, "kupa").build();
       EpbContext ctx = contextRef.get();
-//      System.out.println("Inner context is: " + ctx);
-//      System.out.println("Arguments are: " + Arrays.toString(argNames));
+      //      System.out.println("Inner context is: " + ctx);
+      //      System.out.println("Arguments are: " + Arrays.toString(argNames));
       CallTarget ct = ctx.getEnv().parseInternal(source, argNames);
       callNode = Truffle.getRuntime().createDirectCallNode(ct);
     }
     Object[] args =
-        prepareArgs(Function.ArgumentsHelper.getPositionalArguments(frame.getArguments()), outer);
+        prepareArgs(
+            Function.ArgumentsHelper.getPositionalArguments(frame.getArguments()), inner, outer);
     Object r = callNode.call(args);
     Object wrapped = innerToOuterNode.execute(r, contextRef.get().getEnv().getContext());
     //    if (lang.equals("R")) {
@@ -87,10 +90,10 @@ public abstract class SafeEvalNode extends RootNode {
   }
 
   @ExplodeLoop
-  private Object[] prepareArgs(Object[] args, TruffleContext outer) {
+  private Object[] prepareArgs(Object[] args, TruffleContext inner, TruffleContext outer) {
     Object[] newArgs = new Object[argConverters.length];
     for (int i = 0; i < argConverters.length; i++) {
-      newArgs[i] = argConverters[i].execute(args[i], outer);
+      newArgs[i] = argConverters[i].execute(args[i], inner, outer);
     }
     return newArgs;
   }

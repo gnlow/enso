@@ -11,30 +11,45 @@ import org.enso.interpreter.epb.node.OuterToInnerNode;
 @ExportLibrary(InteropLibrary.class)
 public class PolyglotProxy implements TruffleObject {
   final Object delegate;
-  private final TruffleContext context;
+  private final TruffleContext origin;
+  private final TruffleContext target;
 
-  public PolyglotProxy(Object delegate, TruffleContext context) {
+  public PolyglotProxy(
+      Object delegate, TruffleContext origin, TruffleContext target) {
     this.delegate = delegate;
-    this.context = context;
+    this.origin = origin;
+    this.target = target;
+  }
+
+  public Object getDelegate() {
+    return delegate;
+  }
+
+  public TruffleContext getOrigin() {
+    return origin;
+  }
+
+  public TruffleContext getTarget() {
+    return target;
   }
 
   @ExportMessage
   public boolean isNull(@CachedLibrary("this.delegate") InteropLibrary nulls) {
-    Object p = context.enter();
+    Object p = origin.enter();
     try {
       return nulls.isNull(this.delegate);
     } finally {
-      context.leave(p);
+      origin.leave(p);
     }
   }
 
   @ExportMessage
   public boolean hasMembers(@CachedLibrary("this.delegate") InteropLibrary members) {
-    Object p = context.enter();
+    Object p = origin.enter();
     try {
       return members.hasMembers(this.delegate);
     } finally {
-      context.leave(p);
+      origin.leave(p);
     }
   }
 
@@ -42,22 +57,22 @@ public class PolyglotProxy implements TruffleObject {
   public Object getMembers(
       boolean includeInternal, @CachedLibrary("this.delegate") InteropLibrary members)
       throws UnsupportedMessageException {
-    Object p = context.enter();
+    Object p = origin.enter();
     try {
       return members.getMembers(this.delegate, includeInternal);
     } finally {
-      context.leave(p);
+      origin.leave(p);
     }
   }
 
   @ExportMessage
   public boolean isMemberInvocable(
       String member, @CachedLibrary("this.delegate") InteropLibrary members) {
-    Object p = context.enter();
+    Object p = origin.enter();
     try {
       return members.isMemberInvocable(this.delegate, member);
     } finally {
-      context.leave(p);
+      origin.leave(p);
     }
   }
 
@@ -69,23 +84,23 @@ public class PolyglotProxy implements TruffleObject {
       @Cached OuterToInnerNode outerToInnerNode)
       throws ArityException, UnknownIdentifierException, UnsupportedMessageException,
           UnsupportedTypeException {
-    Object p = context.enter();
+    Object p = origin.enter();
     try {
       return outerToInnerNode.execute(
-          members.invokeMember(this.delegate, member, arguments), context);
+          members.invokeMember(this.delegate, member, arguments), origin);
     } finally {
-      context.leave(p);
+      origin.leave(p);
     }
   }
 
   @ExportMessage
   public boolean isMemberReadable(
       String member, @CachedLibrary("this.delegate") InteropLibrary members) {
-    Object p = context.enter();
+    Object p = origin.enter();
     try {
       return members.isMemberReadable(this.delegate, member);
     } finally {
-      context.leave(p);
+      origin.leave(p);
     }
   }
 
@@ -95,21 +110,21 @@ public class PolyglotProxy implements TruffleObject {
       @CachedLibrary("this.delegate") InteropLibrary members,
       @Cached OuterToInnerNode outerToInnerNode)
       throws UnknownIdentifierException, UnsupportedMessageException {
-    Object p = context.enter();
+    Object p = origin.enter();
     try {
-      return outerToInnerNode.execute(members.readMember(this.delegate, member), context);
+      return outerToInnerNode.execute(members.readMember(this.delegate, member), origin);
     } finally {
-      context.leave(p);
+      origin.leave(p);
     }
   }
 
   @ExportMessage
   public boolean isExecutable(@CachedLibrary("this.delegate") InteropLibrary functions) {
-    Object p = context.enter();
+    Object p = origin.enter();
     try {
       return functions.isExecutable(this.delegate);
     } finally {
-      context.leave(p);
+      origin.leave(p);
     }
   }
 
@@ -119,11 +134,78 @@ public class PolyglotProxy implements TruffleObject {
       @CachedLibrary("this.delegate") InteropLibrary functions,
       @Cached OuterToInnerNode outerToInnerNode)
       throws UnsupportedMessageException, ArityException, UnsupportedTypeException {
-    Object p = context.enter();
+    Object p = origin.enter();
     try {
-      return outerToInnerNode.execute(functions.execute(this.delegate, arguments), context);
+      return outerToInnerNode.execute(functions.execute(this.delegate, arguments), origin);
     } finally {
-      context.leave(p);
+      origin.leave(p);
+    }
+  }
+
+  @ExportMessage
+  public boolean hasArrayElements(@CachedLibrary("this.delegate") InteropLibrary arrays) {
+    Object p = origin.enter();
+    try {
+      return arrays.hasArrayElements(this.delegate);
+    } finally {
+      origin.leave(p);
+    }
+  }
+
+  @ExportMessage
+  public long getArraySize(@CachedLibrary("this.delegate") InteropLibrary arrays)
+      throws UnsupportedMessageException {
+    Object p = origin.enter();
+    try {
+      return arrays.getArraySize(this.delegate);
+    } finally {
+      origin.leave(p);
+    }
+  }
+
+  @ExportMessage
+  public boolean isArrayElementReadable(
+      long idx, @CachedLibrary("this.delegate") InteropLibrary arrays) {
+    Object p = origin.enter();
+    try {
+      return arrays.isArrayElementReadable(this.delegate, idx);
+    } finally {
+      origin.leave(p);
+    }
+  }
+
+  @ExportMessage
+  public Object readArrayElement(
+      long index,
+      @CachedLibrary("this.delegate") InteropLibrary arrays,
+      @Cached OuterToInnerNode outerToInnerNode)
+      throws InvalidArrayIndexException, UnsupportedMessageException {
+    Object p = origin.enter();
+    try {
+      return outerToInnerNode.execute(arrays.readArrayElement(this.delegate, index), origin);
+    } finally {
+      origin.leave(p);
+    }
+  }
+
+  @ExportMessage
+  public boolean isString(@CachedLibrary("this.delegate") InteropLibrary strings) {
+    Object p = origin.enter();
+    try {
+      return strings.isString(this.delegate);
+    } finally {
+      origin.leave(p);
+    }
+  }
+
+  @ExportMessage
+  public String asString(@CachedLibrary("this.delegate") InteropLibrary strings)
+      throws UnsupportedMessageException {
+    Object p = origin.enter();
+    try {
+      return strings.asString(this.delegate);
+    } finally {
+      origin.leave(p);
     }
   }
 }

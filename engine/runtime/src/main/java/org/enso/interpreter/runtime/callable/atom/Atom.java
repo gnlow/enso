@@ -132,6 +132,11 @@ public class Atom implements TruffleObject {
 
   @ExportMessage
   public Object readMember(String member) {
+    for (int i = 0; i < constructor.getArity(); i++) {
+      if (member.equals(constructor.getFields()[i].getName())) {
+        return fields[i];
+      }
+    }
     Map<String, Function> members = constructor.getDefinitionScope().getMethods().get(constructor);
     Function fun = members.get(member);
     return new CurriedMethod(fun, this);

@@ -56,6 +56,7 @@ public class Context {
    * @param environment the execution environment of the {@link TruffleLanguage}
    */
   public Context(Language language, String home, Env environment) {
+    System.out.println("LOG: Create Enso Context");
     this.language = language;
     this.environment = environment;
     this.out = new PrintStream(environment.out());
@@ -74,6 +75,7 @@ public class Context {
 
   /** Perform expensive initialization logic for the context. */
   public void initialize() {
+    System.out.println("LOG: Initialize Enso Context");
     this.getCompiler().initializeBuiltinsIr();
 
     TruffleFileSystem fs = new TruffleFileSystem();
