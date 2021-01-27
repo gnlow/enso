@@ -4,6 +4,9 @@ import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.*;
 import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.interop.InteropLibrary;
+import com.oracle.truffle.api.interop.UnsupportedMessageException;
+import com.oracle.truffle.api.library.CachedLibrary;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.profiles.ConditionProfile;
 import org.enso.interpreter.Language;
@@ -304,7 +307,7 @@ public abstract class IndirectInvokeMethodNode extends Node {
     }
   }
 
-  @Specialization(guards = "context.getEnvironment().isHostObject(_this)")
+  @Specialization(guards = {"context.getEnvironment().isHostObject(_this)"})
   Stateful doHost(
       MaterializedFrame frame,
       Object state,
@@ -322,6 +325,29 @@ public abstract class IndirectInvokeMethodNode extends Node {
     return new Stateful(state, hostMethodCallNode.execute(symbol, _this, args));
   }
 
+  static boolean notEnso(InteropLibrary langs, Object _this) {
+    try {
+      return langs.getLanguage(_this) != Language.class;
+    } catch (UnsupportedMessageException e) {
+      return true;
+    }
+  }
+
+  @Specialization(guards = {"langs.hasLanguage(_this)", "notEnso(langs,_this)"})
+  Stateful doPolyglot(
+      MaterializedFrame frame,
+      Object state,
+      UnresolvedSymbol symbol,
+      Object _this,
+      Object[] arguments,
+      CallArgumentInfo[] schema,
+      InvokeCallableNode.DefaultsExecutionMode defaultsExecutionMode,
+      InvokeCallableNode.ArgumentsExecutionMode argumentsExecutionMode,
+      BaseNode.TailStatus isTail,
+      @CachedLibrary(limit="3")InteropLibrary langs) {
+    throw new IllegalStateException("not rdy");
+  }
+
   @Fallback
   Stateful doOther(
       MaterializedFrame frame,
@@ -337,5 +363,9 @@ public abstract class IndirectInvokeMethodNode extends Node {
     Context context = lookupContextReference(Language.class).get();
     throw new PanicException(
         context.getBuiltins().error().makeNoSuchMethodError(_this, symbol), this);
+  }
+
+  boolean isHostObject(Context context, Object object) {
+    return context.getEnvironment().isHostObject(object);
   }
 }

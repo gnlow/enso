@@ -6,6 +6,7 @@ import com.oracle.truffle.api.dsl.CachedContext;
 import com.oracle.truffle.api.dsl.Fallback;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.profiles.ConditionProfile;
 import com.oracle.truffle.api.source.SourceSection;
@@ -14,6 +15,7 @@ import org.enso.interpreter.node.BaseNode;
 import org.enso.interpreter.node.callable.dispatch.InvokeFunctionNode;
 import org.enso.interpreter.node.callable.resolver.*;
 import org.enso.interpreter.node.callable.resolver.HostMethodCallNode;
+import org.enso.interpreter.node.callable.thunk.ThunkExecutorNode;
 import org.enso.interpreter.runtime.Context;
 import org.enso.interpreter.runtime.callable.UnresolvedSymbol;
 import org.enso.interpreter.runtime.callable.argument.CallArgumentInfo;
@@ -32,6 +34,7 @@ import java.util.UUID;
 public abstract class InvokeMethodNode extends BaseNode {
   private @Child InvokeFunctionNode invokeFunctionNode;
   private final ConditionProfile errorProfile = ConditionProfile.createCountingProfile();
+  private final int argumentCount;
 
   /**
    * Creates a new node for method invocation.
@@ -54,6 +57,7 @@ public abstract class InvokeMethodNode extends BaseNode {
       InvokeCallableNode.ArgumentsExecutionMode argumentsExecutionMode) {
     this.invokeFunctionNode =
         InvokeFunctionNode.build(schema, defaultsExecutionMode, argumentsExecutionMode);
+    this.argumentCount = schema.length;
   }
 
   @Override
@@ -189,7 +193,8 @@ public abstract class InvokeMethodNode extends BaseNode {
     return invokeFunctionNode.execute(function, frame, state, arguments);
   }
 
-  @Specialization(guards = "context.getEnvironment().isHostObject(_this)")
+  @Specialization(guards = "isHostObject(context, _this)")
+  @ExplodeLoop
   Stateful doHost(
       VirtualFrame frame,
       Object state,
@@ -197,10 +202,24 @@ public abstract class InvokeMethodNode extends BaseNode {
       Object _this,
       Object[] arguments,
       @Cached HostMethodCallNode hostMethodCallNode,
+      @Cached(value = "buildExecutors()") ThunkExecutorNode[] argumentExecutors,
+      @Cached AnyResolverNode anyResolverNode,
+      @Cached ConditionProfile handledProfile,
       @CachedContext(Language.class) Context context) {
     Object[] args = new Object[arguments.length - 1];
-    System.arraycopy(arguments, 1, args, 0, arguments.length - 1);
-    return new Stateful(state, hostMethodCallNode.execute(symbol, _this, args));
+    // TODO Push down to host method call
+    for (int i = 0; i < argumentExecutors.length; i++) {
+      Stateful r = argumentExecutors[i].executeThunk(arguments[i + 1], state, TailStatus.NOT_TAIL);
+      args[i] = r.getValue();
+      state = r.getState();
+    }
+    Object r = hostMethodCallNode.execute(symbol, _this, args);
+    if (handledProfile.profile(r == HostMethodCallNode.NO_RESOLUTION)) {
+      Function function = anyResolverNode.execute(symbol, _this);
+      return invokeFunctionNode.execute(function, frame, state, arguments);
+    } else {
+      return new Stateful(state, r);
+    }
   }
 
   @Fallback
@@ -216,6 +235,18 @@ public abstract class InvokeMethodNode extends BaseNode {
   public SourceSection getSourceSection() {
     Node parent = getParent();
     return parent == null ? null : parent.getSourceSection();
+  }
+
+  ThunkExecutorNode[] buildExecutors() {
+    ThunkExecutorNode[] result = new ThunkExecutorNode[argumentCount - 1];
+    for (int i = 0; i < argumentCount - 1; i++) {
+      result[i] = ThunkExecutorNode.build();
+    }
+    return result;
+  }
+
+  boolean isHostObject(Context context, Object object) {
+    return context.getEnvironment().isHostObject(object);
   }
 
   /**
